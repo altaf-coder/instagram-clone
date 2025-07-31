@@ -14,21 +14,27 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(uuid())
-  name           String?
-  userName       String?
-  email          String?         @unique
-  emailVerified  DateTime?       @default(now())
-  bio            String?
-  image          String?
-  hashedPassword String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  accounts       Account[]
-  posts          Post[]
-  userComments   Comments[]
-  notifications  Notifications[]
-  followingIds   String[]
+  id                String          @id @default(uuid())
+  name              String?
+  userName          String?
+  email             String?         @unique
+  emailVerified     DateTime?       @default(now())
+  bio               String?
+  image             String?
+  hashedPassword    String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  accounts          Account[]
+  posts             Post[]
+  userComments      Comments[]
+  notifications     Notifications[]
+  sentNotifications Notifications[] @relation("NotificationSender")
+  followingIds      String[]
+  likedPosts        Post[]          @relation("likes")
+  likedComments     Comments[]      @relation("likedcomments")
+  conversations1    Conversation[]  @relation("User1")
+  conversations2    Conversation[]  @relation("User2")
+  messages          Message[]
 }
 
 model Account {
@@ -50,30 +56,86 @@ model Account {
 }
 
 model Post {
-  id           String     @id @default(uuid())
-  caption      String?
-  postImage    String
-  createdAt    DateTime   @default(now())
-  postId       String
-  user         User       @relation(references: [id], fields: [postId], onDelete: Cascade)
-  postComments Comments[]
+  id            String          @id @default(uuid())
+  caption       String?
+  postImage     Json[]
+  type          PostType        @default(POST)
+  createdAt     DateTime        @default(now())
+  userId        String
+  user          User            @relation(references: [id], fields: [userId], onDelete: Cascade)
+  postComments  Comments[]
+  likes         User[]          @relation("likes")
+  notifications Notifications[]
+}
+
+enum PostType {
+  POST
+  REEL
 }
 
 model Comments {
-  id        String   @id @default(uuid())
-  body      String
-  createdAt DateTime @default(now())
-  commentId String
-  post      Post     @relation(references: [id], fields: [commentId], onDelete: Cascade)
-  userId    String
-  user      User     @relation(references: [id], fields: [userId], onDelete: Cascade)
+  id            String          @id @default(uuid())
+  body          String
+  createdAt     DateTime        @default(now())
+  postId        String
+  post          Post            @relation(references: [id], fields: [postId], onDelete: Cascade)
+  userId        String
+  user          User            @relation(references: [id], fields: [userId], onDelete: Cascade)
+  parentId      String?
+  parent        Comments?       @relation("CommentToReplies", fields: [parentId], references: [id])
+  replies       Comments[]      @relation("CommentToReplies")
+  commentLikes  User[]          @relation("likedcomments")
+  notifications Notifications[]
+}
+
+model Conversation {
+  id            String    @id @default(uuid())
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime  @default(now())
+  user1Id       String
+  user2Id       String
+  user1         User      @relation("User1", fields: [user1Id], references: [id])
+  user2         User      @relation("User2", fields: [user2Id], references: [id])
+  messages      Message[]
+
+  @@unique([user1Id, user2Id])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  body           String?
+  media          String?
+  createdAt      DateTime     @default(now())
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  seen           Boolean      @default(false)
 }
 
 model Notifications {
-  id             String   @id @default(uuid())
-  body           String
-  createdAt      DateTime @default(now())
-  markRead       Boolean? @default(false)
-  notificationId String
-  user           User     @relation(references: [id], fields: [notificationId], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  body      String
+  createdAt DateTime @default(now())
+  markRead  Boolean? @default(false)
+
+  userId String // Receiver of the notification
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  senderId String? // Optional: who triggered the notification
+  sender   User?   @relation("NotificationSender", fields: [senderId], references: [id])
+
+  postId String?
+  post   Post?   @relation(fields: [postId], references: [id])
+
+  commentId String?
+  comment   Comments? @relation(fields: [commentId], references: [id])
+
+  type CommentType @default(FOLLOW)
+}
+
+enum CommentType {
+  FOLLOW
+  LIKE
+  COMMENT
 }

@@ -3,7 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
 import { Toaster } from "react-hot-toast";
 import LeftSideBar from "@/components/ui/LeftSideBar";
-import { headers } from "next/headers";
+import SessionWrapper from "@/hooks/SessionWrapper";
+import RightsideBar from "@/components/ui/RightsideBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,11 +32,18 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Toaster />
-        <div className="flex min-h-screen max-w-7xl mx-auto">
-          <div className="  lg:w-[5%] lg:border-0 lg:border-r border-gray-700">
+        <div className="flex min-h-screen max-w-7xl mx-auto relative">
+          {/* Left Sidebar */}
+          <div className="lg:w-[5%] border-r border-gray-700 hidden lg:block">
             <LeftSideBar />
           </div>
-          <main className="w-full lg:w-[90%]">{children}</main>
+          <main className="w-full max-w-2xl mx-auto">
+            <SessionWrapper>{children}</SessionWrapper>
+          </main>
+
+          <div className="hidden lg:block absolute right-0 top-0 w-[250px] p-4">
+            <RightsideBar />
+          </div>
         </div>
       </body>
     </html>

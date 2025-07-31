@@ -4,6 +4,7 @@ import "../globals.css";
 import { Toaster } from "react-hot-toast";
 import LeftSideBar from "@/components/ui/LeftSideBar";
 import { headers } from "next/headers";
+import SessionWrapper from "@/hooks/SessionWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,8 +26,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const headersList = await headers();
-  const show = await headersList.get("/auth");
   return (
     <html lang="en">
       <body
@@ -34,10 +33,9 @@ export default async function RootLayout({
       >
         <Toaster />
         <div className="flex min-h-screen max-w-7xl mx-auto">
-          {/* <div className="w-[5%] border-r border-gray-700 hidden lg:block"> */}
-          {/* {!show && <LeftSideBar />} */}
-          {/* </div> */}
-          <main className="w-full lg:w-[90%]">{children}</main>
+          <main className="w-full lg:w-[90%]">
+            <SessionWrapper>{children}</SessionWrapper>
+          </main>
         </div>
       </body>
     </html>

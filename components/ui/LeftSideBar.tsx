@@ -1,20 +1,56 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AiFillHome, AiOutlineHome, AiOutlineHeart } from "react-icons/ai";
 import { CgProfile } from "react-icons/cg";
 import { FaUserCircle } from "react-icons/fa";
 import { FiPlusSquare } from "react-icons/fi";
-import { BiLogOut } from "react-icons/bi";
+import { BiLogOut, BiMoviePlay } from "react-icons/bi";
 import { signOut } from "next-auth/react";
-import PostUploadModal from "./post/PostModal";
+import useCurrentUser from "@/hooks/useCurrentUser";
+import Modal from "./post/Modal";
+import { MdMovie } from "react-icons/md";
+import { Avatar, AvatarImage } from "./avatar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "./sheet";
+import NotificationContent from "../notifications/NotificationContent";
+import axios from "axios";
 
 const LeftSideBar = () => {
   const pathname = usePathname();
   const isActive = (path: string) => pathname === path;
   const [isOpen, setIsOpen] = React.useState(false);
-
+  const { data: currentUser } = useCurrentUser();
+  const [notifications, setNotifications] = React.useState([]);
+  const [unRead, setunRead] = React.useState(false);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.post("/api/user/getallnotifications");
+        setNotifications(res.data);
+        const unRead = res.data.some(
+          (notification: any) => !notification.markRead
+        );
+        setunRead(unRead);
+      } catch (error) {
+        console.log(error);
+      }
+    })();
+  }, []);
+  const markRead = async () => {
+    try {
+      await axios.post("/api/user/markreadnotifications");
+      setunRead(false);
+    } catch (error) {
+      console.log(error);
+    }
+  };
   const baseClass =
     "flex items-center gap-4 text-white hover:opacity-90 transition-colors duration-200";
   const iconSize = 26;
@@ -44,11 +80,60 @@ const LeftSideBar = () => {
               Home
             </span>
           </Link>
+          <Link href="/reels" className={baseClass}>
+            {isActive("/reels") ? (
+              <MdMovie size={iconSize} />
+            ) : (
+              <BiMoviePlay size={iconSize} />
+            )}
+            <span className={isActive("/") ? "font-bold" : "font-normal"}>
+              Reels
+            </span>
+          </Link>
 
-          <div className={`${baseClass} font-normal`}>
-            <AiOutlineHeart size={iconSize} />
-            <span>Notifications</span>
-          </div>
+          <Sheet>
+            <SheetTrigger asChild>
+              <div
+                className={`${baseClass} font-normal relative`}
+                onClick={markRead}
+              >
+                <AiOutlineHeart size={iconSize} />
+                <span>Notifications</span>
+
+                {unRead && (
+                  <span className="absolute top-0.5 right-44 bg-red-500 h-2 w-2 rounded-full" />
+                )}
+              </div>
+            </SheetTrigger>
+
+            <SheetContent side="left" className="overflow-y-scroll">
+              <SheetHeader>
+                <SheetTitle className="text-white text-3xl font-bold">
+                  Notifications
+                </SheetTitle>
+
+                {notifications?.length === 0 && (
+                  <span className="text-white text-xl font-semibold text-center">
+                    No notifications
+                  </span>
+                )}
+
+                {notifications?.map((notification: any) => (
+                  <NotificationContent
+                    key={notification?.id}
+                    src={notification?.sender?.image || "/images/profile.webp"}
+                    username={notification?.sender?.username}
+                    body={notification?.body}
+                    createdAt={notification?.createdAt}
+                    id={notification?.sender?.id}
+                    postId={notification?.post?.id}
+                    comment={notification?.comment?.body}
+                    commentId={notification?.comment?.id}
+                  />
+                ))}
+              </SheetHeader>
+            </SheetContent>
+          </Sheet>
 
           <div
             className={`${baseClass} font-normal`}
@@ -58,14 +143,21 @@ const LeftSideBar = () => {
             <span>Create</span>
           </div>
 
-          <Link href="/profile" className={baseClass}>
-            {isActive("/profile") ? (
-              <FaUserCircle size={iconSize} />
-            ) : (
-              <CgProfile size={iconSize} />
-            )}
+          <Link href={`/profile/${currentUser?.id}`} className={baseClass}>
+            <Avatar className="h-7 w-7">
+              <AvatarImage
+                src={currentUser?.image || "/images/profile.webp"}
+                alt="Profile"
+                className="object-cover"
+              />
+            </Avatar>
+
             <span
-              className={isActive("/profile") ? "font-bold" : "font-normal"}
+              className={
+                isActive(`/profile/${currentUser?.id}`)
+                  ? "font-bold"
+                  : "font-normal"
+              }
             >
               Profile
             </span>
@@ -93,15 +185,15 @@ const LeftSideBar = () => {
         </Link>
         <AiOutlineHeart size={iconSize} />
         <FiPlusSquare size={iconSize} onClick={() => setIsOpen(true)} />
-        <Link href="/profile">
-          {isActive("/profile") ? (
+        <Link href={`/profile/${currentUser?.id}`}>
+          {isActive(`/profile/${currentUser?.id}`) ? (
             <FaUserCircle size={iconSize} />
           ) : (
             <CgProfile size={iconSize} />
           )}
         </Link>
       </div>
-      <PostUploadModal isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
   );
 };

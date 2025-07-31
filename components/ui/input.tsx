@@ -5,7 +5,7 @@ interface InputProps {
   onChange: any;
   onBlur?: any;
   value: string;
-  placeholder: string;
+  placeholder?: string;
   type?: string;
 }
 

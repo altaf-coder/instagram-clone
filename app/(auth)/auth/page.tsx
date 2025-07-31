@@ -2,9 +2,9 @@
 import GoogleLoginButton from "@/components/ui/GoogleButton";
 import { authValidation } from "@/validation/authValidation";
 import { Formik } from "formik";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import React from "react";
+import React, { useEffect } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
 import Input from "@/components/ui/input";
@@ -150,6 +150,7 @@ const Page = () => {
                   </>
 
                   <Button
+                    className="bg-blue-500 hover:bg-blue-600 mt-4 w-full"
                     type="submit"
                     disabled={
                       isSubmitting ||
