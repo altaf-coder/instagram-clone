@@ -12,6 +12,8 @@ import useCurrentUser from "@/hooks/useCurrentUser";
 import Modal from "./post/Modal";
 import { MdMovie } from "react-icons/md";
 import { Avatar, AvatarImage } from "./avatar";
+import { MessageCircleIcon, MessageSquare } from "lucide-react";
+
 import {
   Sheet,
   SheetContent,
@@ -43,6 +45,8 @@ const LeftSideBar = () => {
       }
     })();
   }, []);
+
+  
   const markRead = async () => {
     try {
       await axios.post("/api/user/markreadnotifications");
@@ -90,7 +94,18 @@ const LeftSideBar = () => {
               Reels
             </span>
           </Link>
-
+             
+            <Link href="/messages" className={baseClass}>
+            {isActive("/messages") ? (
+              <MessageCircleIcon className="fill-white" size={iconSize} />
+            ) : (
+              <MessageCircleIcon  size={iconSize} />
+            )}
+            <span className={isActive("/") ? "font-bold" : "font-normal"}>
+              Messages
+            </span>
+          </Link>
+           
           <Sheet>
             <SheetTrigger asChild>
               <div
