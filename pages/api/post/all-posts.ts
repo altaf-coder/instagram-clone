@@ -23,6 +23,7 @@ export default async function handler(
           },
         },
         likes: true,
+        postComments: true,
       },
       orderBy: {
         createdAt: "desc",
