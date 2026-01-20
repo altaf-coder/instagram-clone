@@ -13,16 +13,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Get all unique users this person has chats with
-    const allUsers = [...(currentUser.following || []), ...(currentUser.followers || [])];
+    // Get users that current user is following
+    const followingUsers = await prisma.user.findMany({
+      where: {
+        id: {
+          in: currentUser.followingIds || [],
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    // Get users who follow current user
+    const followerUsers = await prisma.user.findMany({
+      where: {
+        followingIds: {
+          has: currentUser.id,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    // Get all unique user IDs this person has chats with
+    const allUserIds = [
+      ...followingUsers.map((u) => u.id),
+      ...followerUsers.map((u) => u.id),
+    ];
     const seenSet = new Set();
-    const uniqueUserIds = allUsers
-      .map((u: any) => u.id)
-      .filter((id: string) => {
-        if (seenSet.has(id) || id === currentUser.id) return false;
-        seenSet.add(id);
-        return true;
-      });
+    const uniqueUserIds = allUserIds.filter((id: string) => {
+      if (seenSet.has(id) || id === currentUser.id) return false;
+      seenSet.add(id);
+      return true;
+    });
 
     // Count unread messages
     let count = 0;

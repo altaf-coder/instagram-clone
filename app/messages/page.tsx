@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 import axios from "axios";
 import { useSearchParams, useRouter } from "next/navigation";
 import useCurrentUser from "@/hooks/useCurrentUser";
@@ -26,27 +26,27 @@ import CallButton from "@/components/ui/CallButton";
 
 let socket: Socket;
 
-const Page = () => {
-  interface Message {
+interface Message {
+  id: string;
+  body: string;
+  media?: string;
+  createdAt: string;
+  senderId: string;
+  receiverId?: string;
+  conversationId: string;
+  seen?: boolean;
+  delivered?: boolean;
+  sharedPost?: any;
+  reactions?: Array<{ emoji: string; user: { id: string; image?: string } }>;
+  sender?: {
     id: string;
-    body: string;
-    media?: string;
-    createdAt: string;
-    senderId: string;
-    receiverId?: string;
-    conversationId: string;
-    seen?: boolean;
-    delivered?: boolean;
-    sharedPost?: any;
-    reactions?: Array<{ emoji: string; user: { id: string; image?: string } }>;
-    sender?: {
-      id: string;
-      name?: string;
-      userName?: string;
-      image?: string;
-    };
-  }
+    name?: string;
+    userName?: string;
+    image?: string;
+  };
+}
 
+const MessagesContent = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -780,6 +780,18 @@ const Page = () => {
         )}
       </div>
     </div>
+  );
+};
+
+const Page = () => {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[100dvh]">
+        <div className="text-muted-foreground">Loading messages...</div>
+      </div>
+    }>
+      <MessagesContent />
+    </Suspense>
   );
 };
 

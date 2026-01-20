@@ -123,7 +123,7 @@ const ReelModal: React.FC<PostUploadModalProps> = ({ isOpen, onClose }) => {
                 </div>
               ) : (
                 <div className="w-full h-full relative">
-                  <VideoPlayer src={postImage.video} />
+                  <VideoPlayer src={postImage.video || "/images/video.mp4"} />
                 </div>
               )}
             </div>

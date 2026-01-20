@@ -38,18 +38,21 @@ const LeftSideBarMessage = () => {
   const [unRead, setUnRead] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0); // 🔹 Track unread chats count
 
+  // Fetch notifications function
+  const fetchNotifications = async () => {
+    try {
+      const res = await axios.post("/api/user/getallnotifications");
+      setNotifications(res.data);
+      const unread = res.data.some((n: any) => !n.markRead);
+      setUnRead(unread);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   // Load notifications
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await axios.post("/api/user/getallnotifications");
-        setNotifications(res.data);
-        const unread = res.data.some((n: any) => !n.markRead);
-        setUnRead(unread);
-      } catch (error) {
-        console.log(error);
-      }
-    })();
+    fetchNotifications();
   }, []);
 
   // Load unread messages count

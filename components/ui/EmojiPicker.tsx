@@ -5,6 +5,7 @@ import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 import { Smile } from "lucide-react";
 import { Button } from "./button";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { useTheme } from "next-themes";
 
 interface EmojiPickerProps {
   onEmojiClick: (emoji: string) => void;
@@ -13,6 +14,7 @@ interface EmojiPickerProps {
 const EmojiPickerComponent: React.FC<EmojiPickerProps> = ({ onEmojiClick }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 350, height: 400 });
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -64,7 +66,7 @@ const EmojiPickerComponent: React.FC<EmojiPickerProps> = ({ onEmojiClick }) => {
       >
         <EmojiPicker
           onEmojiClick={handleEmojiClick}
-          theme="auto"
+          theme={theme as unknown as Theme}
           width={dimensions.width}
           height={dimensions.height}
         />
