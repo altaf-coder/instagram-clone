@@ -26,7 +26,16 @@ export default async function handler(
             id: true,
           },
         },
-        likes: true,
+        likes: {
+          select: {
+            id: true,
+          },
+        },
+        savedBy: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
     return res.status(200).json(post);

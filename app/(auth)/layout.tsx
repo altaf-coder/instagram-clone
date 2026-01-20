@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import LeftSideBar from "@/components/ui/LeftSideBar";
 import { headers } from "next/headers";
 import SessionWrapper from "@/hooks/SessionWrapper";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,16 +28,19 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Toaster />
-        <div className="flex min-h-screen max-w-7xl mx-auto">
-          <main className="w-full lg:w-[90%]">
-            <SessionWrapper>{children}</SessionWrapper>
-          </main>
-        </div>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Toaster />
+          <SessionWrapper>{children}</SessionWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );

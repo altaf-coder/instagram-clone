@@ -1,15 +1,18 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
-import { IoMdClose } from "react-icons/io";
-import {
-  MdOutlinePermMedia,
-  MdOutlineVideoLibrary,
-  MdMovieCreation,
-} from "react-icons/md";
+import { Image, Film, Sparkles } from "lucide-react";
 import PostModal from "./PostModal";
 import ReelModal from "@/components/reel/ReelModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 interface ModalProps {
   isOpen: boolean;
@@ -19,55 +22,64 @@ interface ModalProps {
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose }) => {
   const [isopen, setIsOpen] = useState(false);
   const [isReelopen, setIsReelOpen] = useState(false);
+  
+  const handlePostClick = () => {
+    setIsOpen(true);
+    onClose();
+  };
+
+  const handleReelClick = () => {
+    setIsReelOpen(true);
+    onClose();
+  };
+  
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-start p-8 mb-70"
-            initial={{ x: -300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -300, opacity: 0 }}
-          >
-            <motion.div
-              className="bg-[#333] text-white rounded-xl w-50 p-6 shadow-lg relative"
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="bg-background border-border sm:max-w-md p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogTitle className="text-xl font-semibold text-foreground text-center">
+              Create new
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-center">
+              Choose what you want to create
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 space-y-2">
+            {/* Post Option */}
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={handlePostClick}
+              className="w-full flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-all group"
             >
-              {/* Close Button */}
-              <button
-                onClick={onClose}
-                className="absolute top-1 right-2 text-gray-400 hover:text-white"
-              >
-                <IoMdClose size={22} />
-              </button>
-
-              {/* Post */}
-              <div
-                className="flex items-center justify-between mb-5"
-                onClick={() => setIsOpen(true)}
-              >
-                <span className="text-base font-medium hover:cursor-pointer">
-                  Post
-                </span>
-                <MdOutlinePermMedia className="text-xl text-white" />
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Image className="text-white" size={24} />
               </div>
-
-              <hr className="border-gray-600 mb-5" />
-
-              {/* Reel */}
-              <div
-                className="flex items-center justify-between hover:cursor-pointer"
-                onClick={() => setIsReelOpen(true)}
-              >
-                <span className="text-base font-medium">Reel</span>
-                <MdMovieCreation className="text-xl text-white" />
+              <div className="flex-1 text-left">
+                <p className="text-base font-semibold text-foreground">Post</p>
+                <p className="text-sm text-muted-foreground">Share photos and videos</p>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.button>
+
+            {/* Reel Option */}
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={handleReelClick}
+              className="w-full flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-all group"
+            >
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Film className="text-white" size={24} />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-base font-semibold text-foreground">Reel</p>
+                <p className="text-sm text-muted-foreground">Create a short video</p>
+              </div>
+            </motion.button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <PostModal isOpen={isopen} onClose={() => setIsOpen(false)} />
       <ReelModal isOpen={isReelopen} onClose={() => setIsReelOpen(false)} />
     </>

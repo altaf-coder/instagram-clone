@@ -28,25 +28,31 @@ export default async function handler(
 
     if (alreadyLiked) {
       // UNLIKE
-      await prisma.post.update({
+      const updatedPost = await prisma.post.update({
         where: { id },
         data: {
           likes: {
             disconnect: { id: currentUser.id },
           },
         },
+        include: { likes: true },
       });
 
-      return res.status(200).json({ message: "Post unliked" });
+      return res.status(200).json({ 
+        message: "Post unliked",
+        likesCount: updatedPost.likes.length,
+        liked: false,
+      });
     } else {
       // LIKE
-      await prisma.post.update({
+      const updatedPost = await prisma.post.update({
         where: { id },
         data: {
           likes: {
             connect: { id: currentUser.id },
           },
         },
+        include: { likes: true },
       });
 
       // Avoid self-notifications
@@ -65,7 +71,11 @@ export default async function handler(
         });
       }
 
-      return res.status(200).json({ message: "Post liked" });
+      return res.status(200).json({ 
+        message: "Post liked",
+        likesCount: updatedPost.likes.length,
+        liked: true,
+      });
     }
   } catch (error) {
     console.error("Error in liking/unliking post:", error);

@@ -5,13 +5,18 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== "POST") return res.status(405).end();
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
 
   try {
-    const { id } = req.body
+    // Support both GET (query params) and POST (body)
+    const id = req.method === "GET" ? req.query.id : req.body.id;
 
     if (!id || typeof id !== "string") {
-      return res.status(400).json({ message: "Invalid user ID" });
+      res.status(400).json({ message: "Invalid user ID" });
+      return;
     }
 
     const user = await prisma.user.findUnique({
@@ -27,7 +32,8 @@ export default async function handler(
     });
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "User not found" });
+      return;
     }
 
     // Users that this user is following
@@ -60,7 +66,7 @@ export default async function handler(
       },
     });
 
-    return res.status(200).json({
+    res.status(200).json({
       ...user,
       followersCount: followerUsers.length,
       followingCount: followingUsers.length,
@@ -69,6 +75,6 @@ export default async function handler(
     });
   } catch (error) {
     console.error("User fetch error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 }

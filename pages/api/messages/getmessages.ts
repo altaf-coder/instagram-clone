@@ -15,13 +15,98 @@ export default async function handler(req:NextApiRequest, res:NextApiResponse){
             orderBy: {
                 createdAt: "asc",
             },
-            include: {
-                sender: true,
+            select: {
+                id: true,
+                body: true,
+                media: true,
+                createdAt: true,
+                senderId: true,
+                receiverId: true,
+                conversationId: true,
+                seen: true,
+                delivered: true,
+                sharedPostId: true,
+                sender: {
+                    select: {
+                        id: true,
+                        name: true,
+                        userName: true,
+                        image: true,
+                    },
+                },
             },
         });
-        return res.status(200).json(messages);
-    } catch (error) {
+
+        // Fetch sharedPost and reactions separately to avoid schema errors
+        const messagesWithExtras = await Promise.all(
+            messages.map(async (msg: any) => {
+                // Check if message has sharedPostId (if field exists in DB)
+                if ('sharedPostId' in msg && msg.sharedPostId) {
+                    try {
+                        const post = await prisma.post.findUnique({
+                            where: { id: msg.sharedPostId },
+                            select: {
+                                id: true,
+                                type: true,
+                                postImage: true,
+                                caption: true,
+                                user: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        userName: true,
+                                        image: true,
+                                    },
+                                },
+                                likes: {
+                                    select: {
+                                        id: true,
+                                    },
+                                },
+                            },
+                        });
+                        msg.sharedPost = post;
+                    } catch (err) {
+                        msg.sharedPost = null;
+                    }
+                } else {
+                    msg.sharedPost = null;
+                }
+
+                // Fetch reactions if MessageReaction model exists
+                try {
+                    const reactions = await prisma.messageReaction.findMany({
+                        where: { messageId: msg.id },
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    image: true,
+                                },
+                            },
+                        },
+                    });
+                    msg.reactions = reactions || [];
+                } catch {
+                    msg.reactions = [];
+                }
+
+                return msg;
+            })
+        );
+
+        res.status(200).json(messagesWithExtras);
+    } catch (error: any) {
         console.error("Error fetching messages:", error);
-        return res.status(500).json({ error: "Internal Server Error" });
+        
+        // If it's a schema/model error, provide helpful message
+        if (error.message?.includes("Unknown field") || error.message?.includes("Unknown arg")) {
+            res.status(500).json({ 
+                error: "Database schema needs to be updated. Please run: npx prisma migrate dev --name add_message_features",
+                details: error.message 
+            });
+        } else {
+            res.status(500).json({ error: "Internal Server Error", details: error.message });
+        }
     }
 } 

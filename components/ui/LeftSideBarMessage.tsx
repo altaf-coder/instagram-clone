@@ -2,17 +2,21 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AiFillHome, AiOutlineHome, AiOutlineHeart } from "react-icons/ai";
-import { CgProfile } from "react-icons/cg";
-import { FaInstagram, FaUserCircle } from "react-icons/fa";
-import { FiPlusSquare } from "react-icons/fi";
-import { BiLogOut, BiMoviePlay } from "react-icons/bi";
 import { signOut } from "next-auth/react";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import Modal from "./post/Modal";
-import { MdMovie } from "react-icons/md";
 import { Avatar, AvatarImage } from "./avatar";
-import { MessageCircleIcon, MessageSquare } from "lucide-react";
+import {
+  Home,
+  Film,
+  Send,
+  Bell,
+  PlusSquare,
+  LogOut,
+  User,
+  Instagram,
+} from "lucide-react";
+import { motion } from "framer-motion";
 import {
   Sheet,
   SheetContent,
@@ -21,6 +25,7 @@ import {
   SheetTrigger,
 } from "./sheet";
 import NotificationContent from "../notifications/NotificationContent";
+import { ThemeToggle } from "@/components/theme-toggle";
 import axios from "axios";
 
 const LeftSideBarMessage = () => {
@@ -86,7 +91,11 @@ const LeftSideBarMessage = () => {
   const markRead = async () => {
     try {
       await axios.post("/api/user/markreadnotifications");
-      setUnRead(false);
+      // Refresh notifications after marking as read
+      const res = await axios.post("/api/user/getallnotifications");
+      setNotifications(res.data);
+      const unread = res.data.some((n: any) => !n.markRead);
+      setUnRead(unread);
     } catch (error) {
       console.log(error);
     }
@@ -97,108 +106,150 @@ const LeftSideBarMessage = () => {
     setUnreadMessagesCount((prev) => Math.max(prev - 1, 0));
   };
 
-  const baseClass =
-    "flex items-center gap-4 text-white hover:opacity-90 transition-colors duration-200";
-  const iconSize = 26;
 
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden lg:flex flex-col p-6 h-screen bg-black fixed top-0 left-0 border-r border-gray-700">
-
+      <motion.div
+        initial={{ x: -20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="hidden lg:flex flex-col items-center p-4 h-screen bg-background fixed top-0 left-0 border-r border-border w-16"
+      >
         {/* Logo */}
-        <div className="mb-10 ml-2">
-          <FaInstagram size={30} className="text-white" />
-        </div>
+        <motion.div
+          initial={{ scale: 0.9 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.1 }}
+          className="mb-8 flex items-center justify-center"
+        >
+          <Instagram size={24} className="text-foreground" />
+        </motion.div>
 
         {/* Navigation Links */}
-        <div className="flex flex-col gap-8 ml-2 flex-grow">
-          <Link href="/" className={baseClass}>
-            {isActive("/") ? <AiFillHome size={iconSize} /> : <AiOutlineHome size={iconSize} />}
-          </Link>
+        <div className="flex flex-col gap-1 flex-grow w-full">
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Link href="/" className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-muted transition-colors">
+              <Home
+                size={24}
+                className={`text-foreground ${isActive("/") ? "fill-foreground" : ""}`}
+              />
+            </Link>
+          </motion.div>
 
-          <Link href="/reels" className={baseClass}>
-            {isActive("/reels") ? <MdMovie size={iconSize} /> : <BiMoviePlay size={iconSize} />}
-          </Link>
-          <Link href="/messages" className={`${baseClass} relative`}>
-            {isActive("/messages/:path*") ? (
-              <MessageSquare size={iconSize} />
-            ) : (
-              <MessageCircleIcon className="fill-white" size={iconSize} />
-            )}
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Link href="/reels" className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-muted transition-colors">
+              <Film
+                size={24}
+                className={`text-foreground ${isActive("/reels") ? "fill-foreground" : ""}`}
+              />
+            </Link>
+          </motion.div>
 
-            {unreadMessagesCount > 0 && (
-              <span className="absolute -top-1 left-4 bg-red-500 text-white text-xs font-bold rounded-full px-1.5">
-                {unreadMessagesCount}
-              </span>
-            )}
-          </Link>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative">
+            <Link href="/messages" className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-muted transition-colors relative">
+              <Send
+                size={24}
+                className={`text-foreground ${isActive("/messages") ? "fill-foreground" : ""}`}
+              />
+              {unreadMessagesCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center border-2 border-background z-10">
+                  {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
+                </span>
+              )}
+            </Link>
+          </motion.div>
 
           {/* Notifications */}
-          <Sheet>
+          <Sheet onOpenChange={(open) => {
+            if (open) {
+              fetchNotifications();
+            }
+          }}>
             <SheetTrigger asChild>
-              <div className={`${baseClass} relative`} onClick={markRead}>
-                <AiOutlineHeart size={iconSize} />
-                {unRead && <span className="absolute top-0.5 right-44 bg-red-500 h-2 w-2 rounded-full" />}
-              </div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-muted transition-colors cursor-pointer relative"
+                onClick={markRead}
+              >
+                <Bell size={24} className="text-foreground" />
+                {unRead && (
+                  <span className="absolute top-1 right-1 bg-red-500 h-2 w-2 rounded-full border border-background" />
+                )}
+              </motion.div>
             </SheetTrigger>
 
-            <SheetContent side="left" className="overflow-y-scroll">
+            <SheetContent side="left" className="overflow-y-auto bg-background border-border">
               <SheetHeader>
-                <SheetTitle className="text-white text-3xl font-bold">Notifications</SheetTitle>
+                <SheetTitle className="text-foreground text-2xl font-bold">
+                  Notifications
+                </SheetTitle>
                 {notifications?.length === 0 && (
-                  <span className="text-white text-xl font-semibold text-center">
+                  <span className="text-foreground text-lg font-semibold text-center block mt-4">
                     No notifications
                   </span>
                 )}
-                {notifications?.map((n: any) => (
-                  <NotificationContent
-                    key={n?.id}
-                    src={n?.sender?.image || "/images/profile.webp"}
-                    username={n?.sender?.username}
-                    body={n?.body}
-                    createdAt={n?.createdAt}
-                    id={n?.sender?.id}
-                    postId={n?.post?.id}
-                    comment={n?.comment?.body}
-                    commentId={n?.comment?.id}
-                  />
-                ))}
+                <div className="mt-4 space-y-2">
+                  {notifications?.map((n: any) => (
+                    <NotificationContent
+                      key={n?.id}
+                      src={n?.sender?.image || "/images/profile.webp"}
+                      username={n?.sender?.userName || n?.sender?.name || "User"}
+                      body={n?.body}
+                      createdAt={n?.createdAt}
+                      id={n?.sender?.id}
+                      postId={n?.post?.id}
+                      comment={n?.comment?.body}
+                      commentId={n?.comment?.id}
+                      type={n?.type}
+                    />
+                  ))}
+                </div>
               </SheetHeader>
             </SheetContent>
           </Sheet>
 
-          <div className={baseClass} onClick={() => setIsOpen(true)}>
-            <FiPlusSquare size={iconSize} />
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+            onClick={() => setIsOpen(true)}
+          >
+            <PlusSquare size={24} className="text-foreground" />
+          </motion.div>
+
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Link
+              href={`/profile/${currentUser?.id}`}
+              className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-muted transition-colors"
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarImage
+                  src={currentUser?.image || "/images/profile.webp"}
+                  alt="Profile"
+                  className="object-cover"
+                />
+              </Avatar>
+            </Link>
+          </motion.div>
+        </div>
+
+        {/* Bottom Section */}
+        <div className="mt-auto space-y-1 w-full">
+          <div className="flex items-center justify-center">
+            <ThemeToggle />
           </div>
-
-          <Link href={`/profile/${currentUser?.id}`} className={baseClass}>
-            <Avatar className="h-7 w-7">
-              <AvatarImage
-                src={currentUser?.image || "/images/profile.webp"}
-                alt="Profile"
-                className="object-cover"
-              />
-            </Avatar>
-          </Link>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-muted transition-colors cursor-pointer text-destructive"
+            onClick={() => signOut()}
+          >
+            <LogOut size={24} />
+          </motion.div>
         </div>
-
-        {/* Logout */}
-        <div className={`${baseClass} mt-auto ml-2 cursor-pointer`} onClick={() => signOut()}>
-          <BiLogOut size={iconSize} color="red" />
-          <span className="font-semibold">Logout</span>
-        </div>
-      </div>
-
-      {/* Mobile Sidebar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-black flex justify-around items-center py-3">
-        <Link href="/">{isActive("/") ? <AiFillHome size={iconSize} /> : <AiOutlineHome size={iconSize} />}</Link>
-        <AiOutlineHeart size={iconSize} />
-        <FiPlusSquare size={iconSize} onClick={() => setIsOpen(true)} />
-        <Link href={`/profile/${currentUser?.id}`}>
-          {isActive(`/profile/${currentUser?.id}`) ? <FaUserCircle size={iconSize} /> : <CgProfile size={iconSize} />}
-        </Link>
-      </div>
+      </motion.div>
 
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
