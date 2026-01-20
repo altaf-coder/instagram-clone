@@ -43,3 +43,10 @@ export default async function handler(
       .json({ error: "Something went wrong in updating user" });
   }
 }
+
+export const config = {
+  api: {
+    bodyParser: false,
+    sizeLimit: "5mb",
+  },
+};

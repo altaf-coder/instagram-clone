@@ -72,7 +72,7 @@ const ReelUploader: React.FC<UploadProps> = ({
       <div
         {...getRootProps({
           className:
-            "w-full p-4 text-white text-center rounded-md  cursor-pointer",
+            "w-full p-4 text-center rounded-lg cursor-pointer hover:bg-muted/50 transition-colors",
         })}
       >
         <input {...getInputProps()} />
@@ -80,7 +80,7 @@ const ReelUploader: React.FC<UploadProps> = ({
           <Button
             size="sm"
             variant="default"
-            className="bg-blue-700 hover:bg-blue-500"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
             disabled={disabled || !!videoBase64}
           >
             {videoBase64 ? "Video selected" : label || "Select Video"}
@@ -92,8 +92,11 @@ const ReelUploader: React.FC<UploadProps> = ({
         <div className="relative mt-0 h-full w-full">
           <VideoPlayer src={videoBase64} />
           <button
-            onClick={removeVideo}
-            className="absolute top-2 right-2 bg-black bg-opacity-60 text-white rounded-full px-2 text-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeVideo();
+            }}
+            className="absolute top-2 right-2 bg-black/70 hover:bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition-colors z-10"
           >
             ✕
           </button>

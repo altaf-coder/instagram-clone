@@ -5,6 +5,8 @@ import useCurrentUser from "@/hooks/useCurrentUser";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { Button } from "./button";
+import { motion } from "framer-motion";
 
 const RightsideBar = () => {
   const { data: currentUser } = useCurrentUser();
@@ -13,13 +15,19 @@ const RightsideBar = () => {
     const fetchedUsers = async () => {
       try {
         const res = await axios.get("/api/user/getallusers");
-        setAllUsers(res.data);
+        // Filter out current user just to be safe (API should already exclude it)
+        const filteredUsers = res.data.filter(
+          (user: any) => user.id !== currentUser?.id
+        );
+        setAllUsers(filteredUsers);
       } catch (error) {
         console.log(error);
       }
     };
-    fetchedUsers();
-  }, []);
+    if (currentUser?.id) {
+      fetchedUsers();
+    }
+  }, [currentUser?.id]);
 
   const router = useRouter();
   const followUser = async (userId: string) => {
@@ -51,71 +59,83 @@ const RightsideBar = () => {
   };
 
   return (
-    <div className="w-full p-4 flex flex-col space-y-4">
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.3 }}
+      className="w-full p-4 flex flex-col space-y-4"
+    >
       {/* Current User */}
-      <div
-        className="flex items-center gap-4 hover:cursor-pointer"
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors"
         onClick={() => router.push(`/profile/${currentUser.id}`)}
       >
-        <div className="rounded-full bg-gray-300 overflow-hidden">
-          <Avatar className="h-11 w-11">
-            <AvatarImage
-              className="w-11 h-11  object-cover rounded-full"
-              src={currentUser?.image || "/images/profile.webp"}
-            />
-          </Avatar>
-        </div>
-        <span className="text-sm font-medium text-gray-300">
+        <Avatar className="h-10 w-10">
+          <AvatarImage
+            className="object-cover rounded-full"
+            src={currentUser?.image || "/images/profile.webp"}
+          />
+        </Avatar>
+        <span className="text-sm font-medium text-foreground">
           {currentUser?.userName || currentUser?.name}
         </span>
-      </div>
+      </motion.div>
 
       {/* Suggested Title */}
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mt-3">
+      <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-3 px-2">
         Suggested Accounts
       </h2>
-      {users.length === 0 && <p className="text-sm text-gray-500">No Users</p>}
+      {users.length === 0 && (
+        <p className="text-sm text-muted-foreground px-2">No Users</p>
+      )}
       {/* Suggested Users */}
-      {users.map((user: any) => {
-        const isFollowing = currentUser?.followingIds.includes(user.id);
-        return (
-          <div
-            key={user.id}
-            className="flex items-center gap-4 hover:cursor-pointer"
-          >
-            <Avatar
-              className="h-11 w-11"
-              onClick={() => router.push(`/profile/${user.id}`)}
+      {users
+        .filter((user: any) => user.id !== currentUser?.id)
+        .slice(0, 5)
+        .map((user: any, index: number) => {
+          const isFollowing = currentUser?.followingIds?.includes(user.id);
+          return (
+            <motion.div
+              key={user.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              whileHover={{ scale: 1.02 }}
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
             >
-              <AvatarImage
-                className="rounded-full w-11 h-11 object-cover"
-                src={user.image || "/images/profile.webp"}
-              />
-            </Avatar>
-            <span
-              className="text-sm font-medium text-gray-300"
-              onClick={() => router.push(`/profile/${user.id}`)}
-            >
-              {user?.userName || user?.name}
-            </span>
-            <p
-              onClick={
-                isFollowing
-                  ? () => unfollowUser(user.id)
-                  : () => followUser(user.id)
-              }
-              className={` ${
-                isFollowing
-                  ? "text-gray-400 hover:text-gray-500 text-sm"
-                  : "text-blue-600 hover:text-blue-700 text-sm"
-              }`}
-            >
-              {isFollowing ? "Following" : "Follow"}
-            </p>
-          </div>
-        );
-      })}
-    </div>
+              <Avatar
+                className="h-10 w-10 cursor-pointer"
+                onClick={() => router.push(`/profile/${user.id}`)}
+              >
+                <AvatarImage
+                  className="rounded-full object-cover"
+                  src={user.image || "/images/profile.webp"}
+                />
+              </Avatar>
+              <span
+                className="text-sm font-medium text-foreground flex-1 cursor-pointer hover:opacity-80"
+                onClick={() => router.push(`/profile/${user.id}`)}
+              >
+                {user?.userName || user?.name}
+              </span>
+              <Button
+                variant={isFollowing ? "ghost" : "default"}
+                size="sm"
+                className="text-xs h-7 px-3"
+                onClick={
+                  isFollowing
+                    ? () => unfollowUser(user.id)
+                    : () => followUser(user.id)
+                }
+              >
+                {isFollowing ? "Following" : "Follow"}
+              </Button>
+            </motion.div>
+          );
+        })}
+    </motion.div>
   );
 };
 

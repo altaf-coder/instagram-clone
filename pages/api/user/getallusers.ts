@@ -6,11 +6,17 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+  
   const currentUser = await getCurrentUser(req, res);
-  if (!currentUser?.email)
-    return res.status(401).json({ error: "Unauthorized" });
+  if (!currentUser?.email) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  
   try {
     const users = await prisma.user.findMany({
       where: {
@@ -18,12 +24,17 @@ export default async function handler(
           id: currentUser.id,
         },
       },
+      select: {
+        id: true,
+        name: true,
+        userName: true,
+        image: true,
+        followingIds: true,
+      },
     });
-    return res.status(200).json(users);
+    res.status(200).json(users);
   } catch (error) {
     console.log(error);
-    return res
-      .status(400)
-      .json({ error: "Something went wrong in fetching users" });
+    res.status(400).json({ error: "Something went wrong in fetching users" });
   }
 }

@@ -5,6 +5,9 @@ import { Toaster } from "react-hot-toast";
 import LeftSideBar from "@/components/ui/LeftSideBar";
 import SessionWrapper from "@/hooks/SessionWrapper";
 import RightsideBar from "@/components/ui/RightsideBar";
+import { ThemeProvider } from "@/components/theme-provider";
+import MobileBottomNav from "@/components/ui/MobileBottomNav";
+import MobileHeader from "@/components/ui/MobileHeader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,24 +30,38 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Toaster />
-        <div className="flex min-h-screen max-w-7xl mx-auto relative">
-          {/* Left Sidebar */}
-          <div className="lg:w-[5%] border-r border-gray-700 hidden lg:block">
-            <LeftSideBar />
-          </div>
-          <main className="w-full max-w-2xl mx-auto">
-            <SessionWrapper>{children}</SessionWrapper>
-          </main>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Toaster />
+          <SessionWrapper>
+            {/* Mobile Header */}
+            <MobileHeader />
+            <div className="flex min-h-screen max-w-7xl mx-auto relative bg-background pt-14 lg:pt-0">
+              {/* Left Sidebar - Desktop Only */}
+              <div className="lg:w-[5%] border-r border-border hidden lg:block">
+                <LeftSideBar />
+              </div>
+              <main className="w-full max-w-2xl mx-auto pb-16 lg:pb-0">
+                {children}
+              </main>
 
-          <div className="hidden lg:block absolute right-0 top-0 w-[250px] p-4">
-            <RightsideBar />
-          </div>
-        </div>
+              {/* Right Sidebar - Desktop Only */}
+              <div className="hidden lg:block absolute right-0 top-0 w-[250px] p-4">
+                <RightsideBar />
+              </div>
+            </div>
+            {/* Mobile Bottom Navigation */}
+            <MobileBottomNav />
+          </SessionWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );

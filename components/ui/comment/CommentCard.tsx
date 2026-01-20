@@ -9,6 +9,8 @@ import useCurrentUser from "@/hooks/useCurrentUser";
 import { Avatar, AvatarImage } from "@radix-ui/react-avatar";
 import { FaHeart, FaRegHeart } from "react-icons/fa"; // ❤️ Heart icon
 import { useRouter } from "next/navigation";
+import { getSocket } from "@/lib/socket";
+import EmojiPickerComponent from "../EmojiPicker";
 
 interface CommentModalProps {
   isOpen: boolean;
@@ -176,6 +178,38 @@ const CommentModal: React.FC<CommentModalProps> = ({
   const [parentId, setParentId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
 
+  // Setup socket for real-time comment updates
+  useEffect(() => {
+    if (!isOpen || !postId) return;
+
+    const socket = getSocket();
+
+    // Listen for new comments
+    const handlePostCommented = (data: { postId: string }) => {
+      if (data.postId === postId) {
+        fetchComments();
+      }
+    };
+
+    socket.on("post-commented", handlePostCommented);
+
+    return () => {
+      socket.off("post-commented", handlePostCommented);
+    };
+  }, [isOpen, postId]);
+
+  const emitCommentUpdate = (postId: string) => {
+    const socket = getSocket();
+    
+    if (socket.connected) {
+      socket.emit("post-comment-update", { postId });
+    } else {
+      socket.once("connect", () => {
+        socket.emit("post-comment-update", { postId });
+      });
+    }
+  };
+
   const handleSend = async () => {
     if (!comment.trim()) return;
 
@@ -190,6 +224,10 @@ const CommentModal: React.FC<CommentModalProps> = ({
       setComment("");
       setParentId(null);
       setReplyingTo(null);
+      
+      // Emit socket event for real-time update
+      emitCommentUpdate(postId);
+      
       fetchComments();
     } catch (error) {
       console.error(error);
@@ -221,14 +259,14 @@ const CommentModal: React.FC<CommentModalProps> = ({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 pr-80"
+        className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 lg:pr-80"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="relative bg-[#333] w-[350px] h-[50vh] rounded-xl p-4 flex flex-col justify-between"
+          className="relative bg-[#333] w-full h-[60vh] max-h-[600px] lg:w-[350px] lg:h-[50vh] lg:rounded-xl p-4 flex flex-col justify-between"
           initial={{ x: 100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 100, opacity: 0 }}
@@ -237,16 +275,16 @@ const CommentModal: React.FC<CommentModalProps> = ({
         >
           <button
             onClick={onClose}
-            className="absolute top-3 left-3 text-white hover:text-gray-300"
+            className="absolute top-3 left-3 text-white hover:text-gray-300 z-10"
           >
             <X className="w-5 h-5" />
           </button>
 
-          <div className="text-white text-xl font-semibold mb-2 text-center">
+          <div className="text-white text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-center flex-shrink-0">
             Comments
           </div>
 
-          <div className="overflow-y-auto flex-1 pr-2">
+          <div className="overflow-y-auto flex-1 pr-2 min-h-0">
             {comments.length === 0 ? (
               <div className="text-center text-gray-400 mt-1">
                 No comments yet
@@ -264,15 +302,15 @@ const CommentModal: React.FC<CommentModalProps> = ({
           </div>
 
           {/* Input box */}
-          <div className="flex items-center gap-2 bg-black p-2 rounded-md mt-2">
-            <Avatar className="w-6 h-6">
+          <div className="flex items-center gap-2 bg-black p-2 sm:p-3 rounded-md mt-2 flex-shrink-0">
+            <Avatar className="w-6 h-6 sm:w-7 sm:h-7 flex-shrink-0">
               <AvatarImage
                 className="w-full h-full object-cover rounded-full"
                 src={currentUser?.image || "/images/profile.webp"}
               />
             </Avatar>
 
-            <div className="flex-1 relative">
+            <div className="flex-1 relative flex items-center gap-2">
               <input
                 type="text"
                 placeholder={
@@ -280,9 +318,15 @@ const CommentModal: React.FC<CommentModalProps> = ({
                     ? `Replying to @${replyingTo}...`
                     : "Add a comment..."
                 }
-                className="bg-transparent w-full text-white outline-none placeholder:text-gray-400 pr-6"
+                className="bg-transparent w-full text-white outline-none placeholder:text-gray-400 pr-6 text-sm sm:text-base"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
               />
               {replyingTo && (
                 <button
@@ -298,9 +342,16 @@ const CommentModal: React.FC<CommentModalProps> = ({
               )}
             </div>
 
+            <EmojiPickerComponent
+              onEmojiClick={(emoji: string) => {
+                setComment((prev) => prev + emoji);
+              }}
+            />
+
             <button
-              className="text-blue-400 font-medium hover:underline"
+              className="text-blue-400 font-medium hover:underline text-sm sm:text-base flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleSend}
+              disabled={!comment.trim()}
             >
               Post
             </button>

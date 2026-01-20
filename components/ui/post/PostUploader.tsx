@@ -4,6 +4,8 @@ import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "../button";
 import VideoPlayer from "@/components/reel/VideoPlayer";
+import { Upload, Image as ImageIcon, Video, X } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface UploadProps {
   onChange: (media: { images: string[]; video?: string }) => void;
@@ -12,7 +14,7 @@ interface UploadProps {
   disabled?: boolean;
 }
 
-const PostUpload: React.FC<UploadProps> = ({
+  const PostUpload: React.FC<UploadProps> = ({
   onChange,
   value = { images: [], video: undefined },
   label,
@@ -111,7 +113,7 @@ const PostUpload: React.FC<UploadProps> = ({
     handleChange(base64Images, undefined);
   };
 
-  const { getRootProps, getInputProps } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     multiple: true,
     maxFiles: videoBase64 ? 0 : 5 - base64Images.length,
     disabled: disabled || (videoBase64 ? true : base64Images.length >= 5),
@@ -128,39 +130,82 @@ const PostUpload: React.FC<UploadProps> = ({
         },
   });
 
+  // If media is already selected, show change button
+  const hasMedia = base64Images.length > 0 || !!videoBase64;
+  
+  if (hasMedia && (base64Images.length > 0 || videoBase64)) {
+    return (
+      <div className="w-full">
+        <div
+          {...getRootProps({
+            className: `w-full p-2 sm:p-3 text-center rounded-lg cursor-pointer transition-all ${
+              isDragActive
+                ? "bg-primary/20 border-2 border-primary border-dashed"
+                : "bg-muted/50 hover:bg-muted border border-border"
+            }`,
+          })}
+        >
+          <input {...getInputProps()} />
+          <div className="flex items-center justify-center gap-2">
+            <Upload className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs sm:text-sm text-foreground font-medium">
+              Change {videoBase64 ? "video" : "photos"}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div className="w-full">
       <div
         {...getRootProps({
-          className:
-            "w-full p-4 text-white text-center rounded-md  cursor-pointer",
+          className: `w-full p-6 sm:p-8 text-center rounded-lg cursor-pointer transition-all ${
+            isDragActive
+              ? "bg-primary/10 border-2 border-primary border-dashed"
+              : "bg-muted/30 hover:bg-muted/50 border-2 border-dashed border-border"
+          }`,
         })}
       >
         <input {...getInputProps()} />
-        <div className="flex items-center justify-center flex-col">
-          <Button
-            size="sm"
-            variant="default"
-            className="bg-blue-700 hover:bg-blue-500"
-            disabled={disabled || base64Images.length >= 5 || !!videoBase64}
-          >
-            {videoBase64 ? "Video selected" : "Select from computer"}
-          </Button>
-          {base64Images.length >= 5 && (
-            <p className="text-xs text-red-400 mt-2">
-              You can upload up to 5 images only.
+        <div className="flex flex-col items-center justify-center gap-3 sm:gap-4">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center">
+            <Upload className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
+          </div>
+          <div>
+            <Button
+              size="sm"
+              variant="default"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 sm:px-8"
+              disabled={disabled || base64Images.length >= 5 || !!videoBase64}
+              type="button"
+            >
+              {label || "Select from computer"}
+            </Button>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+              Supports JPG, PNG, WEBP, MP4
             </p>
-          )}
+            {base64Images.length >= 5 && (
+              <p className="text-xs text-destructive mt-1">
+                Maximum 5 images allowed
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Image preview */}
       {base64Images.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-4"
+        >
           {base64Images.map((img, index) => (
             <div
               key={index}
-              className="relative group w-full aspect-square overflow-hidden rounded shadow-md"
+              className="relative group w-full aspect-square overflow-hidden rounded-lg shadow-md border border-border"
             >
               <img
                 src={img}
@@ -168,30 +213,41 @@ const PostUpload: React.FC<UploadProps> = ({
                 className="w-full h-full object-cover"
               />
               <button
-                onClick={() => removeImage(index)}
-                className="absolute top-1 right-1 bg-black bg-opacity-60 text-white rounded-full px-2 text-xs hidden group-hover:block"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeImage(index);
+                }}
+                className="absolute top-1 right-1 bg-black/70 hover:bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition-colors z-10"
+                aria-label="Remove image"
               >
-                ✕
+                <X className="h-3 w-3" />
               </button>
             </div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* Video preview */}
       {videoBase64 && (
-        <div className="relative mt-0 h-full w-full">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative mt-4 w-full rounded-lg overflow-hidden border border-border"
+        >
           <VideoPlayer src={videoBase64} />
           <button
-            onClick={removeVideo}
-            className="absolute top-2 right-2 bg-black bg-opacity-60 text-white rounded-full px-2 text-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeVideo();
+            }}
+            className="absolute top-2 right-2 bg-black/70 hover:bg-black text-white rounded-full w-7 h-7 flex items-center justify-center transition-colors z-10"
+            aria-label="Remove video"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
-        </div>
+        </motion.div>
       )}
     </div>
   );
 };
-
 export default PostUpload;

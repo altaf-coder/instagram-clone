@@ -4,7 +4,13 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { useRouter, useSearchParams } from "next/navigation";
-import { io, Socket } from "socket.io-client"; // 🆕 import socket
+import { io, Socket } from "socket.io-client";
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Search, MessageCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { formatDistanceToNow } from "date-fns";
 
 interface MessageUserListProps {
   conversationId?: string;
@@ -16,7 +22,8 @@ interface Message {
   createdAt: string;
   senderId: string;
   seen: boolean;
-  conversationId?: string; // 🆕 add because socket emits conversationId too
+  conversationId?: string;
+  sharedPost?: any;
 }
 
 let socket: Socket; // 🆕 socket instance
@@ -33,28 +40,60 @@ const MessageUsersList: React.FC<MessageUserListProps> = ({ conversationId }) =>
   const activeUserId = searchParams?.get("userId");
   const [latestMessages, setLatestMessages] = useState<Record<string, Message | null>>({});
 
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+
   // 🆕 Setup socket
   useEffect(() => {
+    if (!currentUser?.id) return;
+
     fetch("/api/socket"); // boot server
-    socket = io({ path: "/api/socket_io" });
+    if (!socket) {
+      socket = io({ path: "/api/socket_io" });
+    }
 
     // listen for new messages
-    socket.on("receive-message", (msg: Message) => {
+    const handleReceiveMessage = (msg: Message) => {
       if (!msg || !msg.senderId) return;
 
       // update the latest message for that user
-      const otherUserId = msg.senderId === currentUser?.id ? activeUserId : msg.senderId;
+      const otherUserId = msg.senderId === currentUser.id ? activeUserId : msg.senderId;
 
       setLatestMessages((prev) => ({
         ...prev,
         [otherUserId!]: msg,
       }));
-    });
+    };
+
+    // Track online users
+    const handleUserOnline = (userId: string) => {
+      if (userId !== currentUser.id) {
+        setOnlineUsers((prev) => new Set(prev).add(userId));
+      }
+    };
+
+    const handleUserOffline = (userId: string) => {
+      setOnlineUsers((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+    };
+
+    socket.on("receive-message", handleReceiveMessage);
+    socket.on("user-online", handleUserOnline);
+    socket.on("user-offline", handleUserOffline);
+
+    // Emit that current user is online
+    socket.emit("user-online", currentUser.id);
 
     return () => {
-      socket.disconnect();
+      if (socket) {
+        socket.off("receive-message", handleReceiveMessage);
+        socket.off("user-online", handleUserOnline);
+        socket.off("user-offline", handleUserOffline);
+      }
     };
-  }, [currentUser, activeUserId]);
+  }, [currentUser?.id, activeUserId]);
 
   // Fetch followers/following (default chat list)
   useEffect(() => {
@@ -103,6 +142,18 @@ const MessageUsersList: React.FC<MessageUserListProps> = ({ conversationId }) =>
 
     fetchLatestMessages();
   }, [uniqueUsers, currentUser]);
+
+  // Sort users by latest message time
+  const sortedUsers = [...uniqueUsers].sort((a, b) => {
+    const msgA = latestMessages[a.id];
+    const msgB = latestMessages[b.id];
+    
+    if (!msgA && !msgB) return 0;
+    if (!msgA) return 1;
+    if (!msgB) return -1;
+    
+    return new Date(msgB.createdAt).getTime() - new Date(msgA.createdAt).getTime();
+  });
 
   // Handle search
   const handleSearch = async (q: string) => {
@@ -153,75 +204,194 @@ const MessageUsersList: React.FC<MessageUserListProps> = ({ conversationId }) =>
     }
   };
 
-  return (
-    <div className="h-screen bg-black text-white overflow-y-auto w-full max-w-[400px]">
-      <h2 className="text-xl text-center font-bold mb-4 mt-4">
-        {currentUser?.userName || currentUser?.name}
-      </h2>
+  const getMessagePreview = (msg: Message | null) => {
+    if (!msg) return "No messages yet";
+    if (msg.sharedPost) {
+      return `📷 Shared a ${msg.sharedPost.type === "POST" ? "post" : "reel"}`;
+    }
+    return msg.body || "Sent a message";
+  };
 
-      {/* 🔍 Search Input */}
-      <div className="px-3 mb-4">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => handleSearch(e.target.value)}
-          placeholder="Search"
-          className="w-full px-4 py-2 rounded-lg bg-[#333] text-white placeholder-gray-400 focus:outline-none"
-        />
+  return (
+    <div className="h-[100dvh] bg-background text-foreground overflow-y-auto w-full scrollbar-hide">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-background border-b border-border p-3 sm:p-4 backdrop-blur-sm bg-background/95">
+        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <Avatar className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">
+            <AvatarImage
+              src={currentUser?.image || "/images/profile.webp"}
+              alt={currentUser?.userName || currentUser?.name}
+              className="object-cover"
+            />
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base sm:text-lg font-semibold text-foreground truncate">
+              {currentUser?.userName || currentUser?.name}
+            </h2>
+            <p className="text-xs text-muted-foreground">Messages</p>
+          </div>
+        </div>
+
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+          <Input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search messages..."
+            className="pl-10 bg-muted/50 border-border focus:bg-background transition-colors"
+          />
+        </div>
       </div>
 
-      {/* Show search results if searching */}
-      {searchQuery.trim() ? (
-        // ... unchanged search UI
-        <></>
-      ) : (
-        <>
-          <h2 className="text-lg font-bold mb-4 px-3">Chats</h2>
-          {loading ? (
-            <div className="px-3">Loading...</div>
-          ) : (
-            <ul>
-              {uniqueUsers.map((user) => {
-                const latest = latestMessages[user.id];
-                const isUnseen =
-                  latest && latest.senderId !== currentUser?.id && !latest.seen;
-
-                return (
-                  <li
+      {/* User List */}
+      <div className="p-2 sm:p-3 pb-4">
+        {searchQuery.trim() ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-muted-foreground px-2 mb-2">
+              Search Results
+            </h3>
+            {searchLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : searchResults.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-4">
+                No users found
+              </p>
+            ) : (
+              searchResults
+                .filter((user: any) => user.id !== currentUser?.id)
+                .map((user: any) => (
+                  <motion.div
                     key={user.id}
-                    className={`mb-2 cursor-pointer p-2 rounded flex items-center gap-3 ${
-                      user.id === activeUserId ? "bg-[#333]" : "hover:bg-[#554f4f]"
-                    }`}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
                     onClick={() => handleUserClick(user.id, user)}
                   >
-                    <img
-                      src={user.image || "/images/profile.webp"}
-                      alt={user.name}
-                      className="w-12 h-12 rounded-full object-cover border border-gray-700"
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-gray-300">{user.name}</span>
-                      {latest ? (
-                        <span
-                          className={
-                            isUnseen ? "font-bold text-white" : "font-normal text-gray-400"
-                          }
-                        >
-                          {latest.body}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500 text-sm italic">
-                          No messages yet
-                        </span>
-                      )}
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage
+                        src={user.image || "/images/profile.webp"}
+                        alt={user.userName || user.name}
+                      />
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {user.userName || user.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {user.name && user.userName ? user.name : "Tap to message"}
+                      </p>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </>
-      )}
+                  </motion.div>
+                ))
+            )}
+          </div>
+        ) : (
+          <>
+            <h3 className="text-sm font-semibold text-muted-foreground px-2 mb-2">
+              Messages
+            </h3>
+            {loading ? (
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : uniqueUsers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground text-sm">No conversations yet</p>
+                <p className="text-muted-foreground text-xs mt-1">
+                  Start a conversation with someone you follow
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {sortedUsers.map((user, index) => {
+                  const latest = latestMessages[user.id];
+                  const isUnseen =
+                    latest && latest.senderId !== currentUser?.id && !latest.seen;
+                  const isActive = user.id === activeUserId;
+                  const isOnline = onlineUsers.has(user.id);
+
+                  return (
+                    <motion.div
+                      key={user.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                      whileHover={{ scale: 1.005 }}
+                      whileTap={{ scale: 0.995 }}
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                        isActive
+                          ? "bg-primary/10 border-l-2 border-primary"
+                          : "hover:bg-muted/50"
+                      }`}
+                      onClick={() => handleUserClick(user.id, user)}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage
+                            src={user.image || "/images/profile.webp"}
+                            alt={user.userName || user.name}
+                            className="object-cover"
+                          />
+                        </Avatar>
+                        {/* Online status indicator */}
+                        {isOnline && (
+                          <span className="absolute bottom-0 right-0 bg-green-500 h-3 w-3 rounded-full border-2 border-background" />
+                        )}
+                        {/* Unread message indicator */}
+                        {isUnseen && (
+                          <span className="absolute -top-1 -right-1 bg-primary h-5 w-5 rounded-full border-2 border-background flex items-center justify-center">
+                            <span className="text-[10px] text-primary-foreground font-bold">
+                              {latest && latest.senderId !== currentUser?.id && !latest.seen ? 1 : ""}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <p
+                            className={`text-sm font-semibold truncate ${
+                              isUnseen ? "text-foreground" : "text-foreground"
+                            }`}
+                          >
+                            {user.userName || user.name}
+                          </p>
+                          {latest && (
+                            <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                              {formatDistanceToNow(new Date(latest.createdAt), {
+                                addSuffix: true,
+                              })
+                                .replace("about ", "")
+                                .replace("less than a minute ago", "now")}
+                            </span>
+                          )}
+                        </div>
+                        <p
+                          className={`text-xs truncate ${
+                            isUnseen
+                              ? "text-foreground font-semibold"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {getMessagePreview(latest)}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

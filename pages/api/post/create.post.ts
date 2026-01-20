@@ -4,7 +4,26 @@ import prisma from "@/lib/prismadb";
 import uploadFile from "@/lib/uploader";
 import formidable from "formidable";
 import fs from "fs";
-import { PostType } from "@prisma/client"; // ✅ import enum from Prisma
+import { PostType } from "@prisma/client";
+import { IncomingMessage } from "http";
+
+// Helper to parse JSON body when bodyParser is disabled
+async function parseJsonBody(req: IncomingMessage): Promise<any> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(body));
+      } catch (error) {
+        reject(new Error("Invalid JSON"));
+      }
+    });
+    req.on("error", reject);
+  });
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -18,10 +37,13 @@ export default async function handler(
 
   try {
     // Parse form data for multipart requests
-    if (req.headers["content-type"]?.includes("multipart/form-data")) {
+    const contentType = req.headers["content-type"] || "";
+    if (contentType.includes("multipart/form-data")) {
       return await handleMultipartUpload(req, res, currentUser);
     } else {
-      return await handleJsonUpload(req, res, currentUser);
+      // Parse JSON body manually
+      const body = await parseJsonBody(req);
+      return await handleJsonUpload(req, res, currentUser, body);
     }
   } catch (error) {
     console.error("Upload error:", error);
@@ -37,7 +59,7 @@ async function handleMultipartUpload(
   currentUser: any
 ) {
   const form = formidable({
-    maxFiles: 1,
+    maxFiles: 10, // Allow multiple files for images
     maxFileSize: 100 * 1024 * 1024, // 100MB
   });
 
@@ -66,7 +88,7 @@ async function handleMultipartUpload(
     const post = await prisma.post.create({
       data: {
         caption,
-        postImage: uploaded.map((file: any) => file.url), // ✅ fix
+        postImage: uploaded.map((file: any) => file.url),
         type: type as PostType,
         userId: currentUser.id,
       },
@@ -75,15 +97,50 @@ async function handleMultipartUpload(
     return res.status(200).json(post);
   }
 
-  return res.status(400).json({ error: "No video provided" });
+  // Handle image uploads
+  if (files.images && files.images.length > 0) {
+    const uploadedFiles = await Promise.all(
+      files.images.map(async (imageFile) => {
+        const fileBuffer = fs.readFileSync(imageFile.filepath);
+        return await uploadFile(
+          fileBuffer,
+          imageFile.originalFilename || "image.jpg",
+          "image"
+        );
+      })
+    );
+
+    const allUrls = uploadedFiles.flat().map((file: any) => file.url);
+
+    const post = await prisma.post.create({
+      data: {
+        caption,
+        postImage: allUrls,
+        type: type as PostType,
+        userId: currentUser.id,
+      },
+    });
+
+    return res.status(200).json(post);
+  }
+
+  return res.status(400).json({ error: "No media provided" });
 }
 
 async function handleJsonUpload(
   req: NextApiRequest,
   res: NextApiResponse,
-  currentUser: any
+  currentUser: any,
+  body?: any
 ) {
-  const { caption, postImage, type } = req.body;
+  // Use provided body or try to get from req.body
+  const requestBody = body || req.body;
+  
+  if (!requestBody) {
+    return res.status(400).json({ error: "Request body is required" });
+  }
+  
+  const { caption, postImage, type } = requestBody;
 
   // ✅ validate type against PostType enum
   if (!Object.values(PostType).includes(type as PostType)) {
@@ -121,7 +178,7 @@ async function handleJsonUpload(
   const post = await prisma.post.create({
     data: {
       caption,
-      postImage: uploaded.map((file: any) => file.url), // ✅ fix
+      postImage: uploaded.map((file: any) => file.url),
       type: type as PostType,
       userId: currentUser.id,
     },
