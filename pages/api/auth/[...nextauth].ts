@@ -5,9 +5,10 @@ import AppleProvider from "next-auth/providers/apple";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
 import prisma from "@/lib/prismadb";
+import type { PrismaClient } from "@prisma/client";
 
-export const authOptions:AuthOptions={
-    adapter:PrismaAdapter(prisma) as any,
+export const authOptions: AuthOptions = {
+    adapter: PrismaAdapter(prisma as unknown as PrismaClient),
     providers:[
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID!,
