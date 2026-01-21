@@ -1,0 +1,188 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated-prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String            @id @default(uuid())
+  name              String?
+  userName          String?
+  email             String?           @unique
+  emailVerified     DateTime?         @default(now())
+  bio               String?
+  image             String?
+  hashedPassword    String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  accounts          Account[]
+  posts             Post[]
+  userComments      Comments[]
+  notifications     Notifications[]
+  sentNotifications Notifications[]   @relation("NotificationSender")
+  followingIds      String[]
+  likedPosts        Post[]            @relation("likes")
+  likedComments     Comments[]        @relation("likedcomments")
+  savedPosts        Post[]            @relation("savedPosts")
+  conversations1    Conversation[]    @relation("User1")
+  conversations2    Conversation[]    @relation("User2")
+  messages          Message[]
+  receivedMessages  Message[]         @relation("MessageReceiver")
+  sharedPosts       SharedPost[]      @relation("SharedBy")
+  receivedShares    SharedPost[]      @relation("SharedTo")
+  messageReactions  MessageReaction[]
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Post {
+  id             String          @id @default(uuid())
+  caption        String?
+  postImage      Json[]
+  type           PostType        @default(POST)
+  createdAt      DateTime        @default(now())
+  userId         String
+  user           User            @relation(references: [id], fields: [userId], onDelete: Cascade)
+  postComments   Comments[]
+  likes          User[]          @relation("likes")
+  savedBy        User[]          @relation("savedPosts")
+  notifications  Notifications[]
+  sharedPosts    SharedPost[]
+  sharedMessages Message[]       @relation("SharedPostMessages")
+}
+
+enum PostType {
+  POST
+  REEL
+}
+
+model Comments {
+  id            String          @id @default(uuid())
+  body          String
+  createdAt     DateTime        @default(now())
+  postId        String
+  post          Post            @relation(references: [id], fields: [postId], onDelete: Cascade)
+  userId        String
+  user          User            @relation(references: [id], fields: [userId], onDelete: Cascade)
+  parentId      String?
+  parent        Comments?       @relation("CommentToReplies", fields: [parentId], references: [id])
+  replies       Comments[]      @relation("CommentToReplies")
+  commentLikes  User[]          @relation("likedcomments")
+  notifications Notifications[]
+}
+
+model Conversation {
+  id            String    @id @default(uuid())
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime  @default(now())
+  user1Id       String
+  user2Id       String
+  user1         User      @relation("User1", fields: [user1Id], references: [id])
+  user2         User      @relation("User2", fields: [user2Id], references: [id])
+  messages      Message[]
+
+  @@unique([user1Id, user2Id])
+}
+
+model Message {
+  id             String            @id @default(uuid())
+  body           String?
+  media          String?
+  createdAt      DateTime          @default(now())
+  senderId       String
+  sender         User              @relation(fields: [senderId], references: [id])
+  receiverId     String
+  receiver       User              @relation("MessageReceiver", fields: [receiverId], references: [id])
+  conversationId String
+  conversation   Conversation      @relation(fields: [conversationId], references: [id])
+  seen           Boolean           @default(false)
+  delivered      Boolean           @default(false)
+  sharedPostId   String?
+  sharedPost     Post?             @relation("SharedPostMessages", fields: [sharedPostId], references: [id])
+  reactions      MessageReaction[]
+  notification   Notifications[]
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  emoji     String
+  createdAt DateTime @default(now())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+}
+
+model Notifications {
+  id        String   @id @default(uuid())
+  body      String
+  createdAt DateTime @default(now())
+  markRead  Boolean? @default(false)
+
+  userId String // Receiver of the notification
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  senderId String? // Optional: who triggered the notification
+  sender   User?   @relation("NotificationSender", fields: [senderId], references: [id])
+
+  postId String?
+  post   Post?   @relation(fields: [postId], references: [id])
+
+  commentId String?
+  comment   Comments? @relation(fields: [commentId], references: [id])
+  messageId String?
+  message   Message?  @relation(fields: [messageId], references: [id])
+
+  type CommentType @default(FOLLOW)
+}
+
+enum CommentType {
+  FOLLOW
+  LIKE
+  COMMENT
+  SHARE
+}
+
+model SharedPost {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  sharedById String
+  sharedBy   User   @relation("SharedBy", fields: [sharedById], references: [id], onDelete: Cascade)
+
+  sharedToId String
+  sharedTo   User   @relation("SharedTo", fields: [sharedToId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, sharedById, sharedToId])
+}
