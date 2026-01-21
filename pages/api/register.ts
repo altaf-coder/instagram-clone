@@ -1,12 +1,20 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@/lib/prismadb";
 import bcrypt from "bcrypt";
+
+// Enable bodyParser for this route to parse JSON
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   if (req.method !== "POST") {
-    return res.status(405).end();
+    return res.status(405).json({ error: "Method not allowed" });
   }
   try {
     const { name, userName, email, password } = req.body;
