@@ -8,6 +8,7 @@ import RightsideBar from "@/components/ui/RightsideBar";
 import { ThemeProvider } from "@/components/theme-provider";
 import MobileBottomNav from "@/components/ui/MobileBottomNav";
 import MobileHeader from "@/components/ui/MobileHeader";
+import SocketUserRegistration from "@/components/SocketUserRegistration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,6 +43,7 @@ export default async function RootLayout({
         >
           <Toaster />
           <SessionWrapper>
+            <SocketUserRegistration />
             {/* Mobile Header */}
             <MobileHeader />
             <div className="flex min-h-screen max-w-7xl mx-auto relative bg-background pt-14 lg:pt-0">

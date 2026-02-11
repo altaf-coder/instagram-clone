@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect } from "react";
 import Link from "next/link";
+import { getSocket } from "@/lib/socket";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import useCurrentUser from "@/hooks/useCurrentUser";
@@ -86,12 +87,22 @@ const LeftSideBar = () => {
   const markRead = async () => {
     try {
       await axios.post("/api/user/markreadnotifications");
-      // Refresh notifications after marking as read
       await fetchNotifications();
     } catch (error) {
       console.log(error);
     }
   };
+
+  // Real-time: refetch notifications when we receive new-notification
+  useEffect(() => {
+    const socket = getSocket();
+    const onNewNotification = () => fetchNotifications();
+    socket.on("new-notification", onNewNotification);
+    return () => {
+      socket.off("new-notification", onNewNotification);
+    };
+  }, []);
+
   const baseClass =
     "flex items-center gap-4 text-foreground hover:opacity-80 transition-all duration-200 cursor-pointer";
   const iconSize = 26;

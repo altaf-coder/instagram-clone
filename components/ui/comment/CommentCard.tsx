@@ -16,6 +16,7 @@ interface CommentModalProps {
   isOpen: boolean;
   onClose: () => void;
   postId: string;
+  postOwnerId?: string;
 }
 
 interface Comment {
@@ -171,6 +172,7 @@ const CommentModal: React.FC<CommentModalProps> = ({
   isOpen,
   onClose,
   postId,
+  postOwnerId,
 }) => {
   const { data: currentUser } = useCurrentUser();
   const [comment, setComment] = useState("");
@@ -225,9 +227,10 @@ const CommentModal: React.FC<CommentModalProps> = ({
       setParentId(null);
       setReplyingTo(null);
       
-      // Emit socket event for real-time update
       emitCommentUpdate(postId);
-      
+      if (postOwnerId && postOwnerId !== currentUser?.id) {
+        getSocket().emit("notify-user", { targetUserId: postOwnerId });
+      }
       fetchComments();
     } catch (error) {
       console.error(error);

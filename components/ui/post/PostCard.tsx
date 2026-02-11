@@ -193,8 +193,10 @@ const PostCard: React.FC<PostCardProps> = ({
       setLiked(newLiked);
       setLikesCount(newLikesCount);
 
-      // Emit socket event for real-time update to all clients
       emitLikeUpdate(id!, newLikesCount, newLiked, currentUser);
+      if (userId && userId !== currentUserId?.id) {
+        getSocket().emit("notify-user", { targetUserId: userId });
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -395,6 +397,7 @@ const PostCard: React.FC<PostCardProps> = ({
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         postId={id ?? ""}
+        postOwnerId={userId}
       />
       <DeletePostModal
         id={id ?? ""}

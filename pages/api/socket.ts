@@ -62,20 +62,22 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
         socket.join(`user-${userId}`);
       });
 
-      // Call events
-      socket.on("call-offer", (data: { targetUserId: string; offer: any }) => {
+      // Call events (include callType so receiver can show Accept/Reject for audio vs video)
+      socket.on("call-offer", (data: { targetUserId: string; offer: any; callType: "audio" | "video" }) => {
         socket.to(`user-${data.targetUserId}`).emit("call-offer", { 
           fromUserId: currentUserId, 
           from: socket.id, 
-          offer: data.offer 
+          offer: data.offer,
+          callType: data.callType || "audio",
         });
       });
 
-      socket.on("call-answer", (data: { targetUserId: string; answer: any }) => {
+      socket.on("call-answer", (data: { targetUserId: string; answer: any; callType: "audio" | "video" }) => {
         socket.to(`user-${data.targetUserId}`).emit("call-answer", { 
           fromUserId: currentUserId, 
           from: socket.id, 
-          answer: data.answer 
+          answer: data.answer,
+          callType: data.callType || "audio",
         });
       });
 
@@ -92,6 +94,18 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
           fromUserId: currentUserId, 
           from: socket.id 
         });
+      });
+
+      socket.on("call-reject", (data: { targetUserId: string }) => {
+        socket.to(`user-${data.targetUserId}`).emit("call-reject", { 
+          fromUserId: currentUserId, 
+          from: socket.id 
+        });
+      });
+
+      // Notify a specific user (e.g. new notification) for real-time updates
+      socket.on("notify-user", (data: { targetUserId: string; payload?: unknown }) => {
+        socket.to(`user-${data.targetUserId}`).emit("new-notification", data.payload ?? {});
       });
 
       socket.on("disconnect", () => {
