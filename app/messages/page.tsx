@@ -12,7 +12,7 @@ import FileUploadButton from "@/components/ui/FileUploadButton";
 import MediaMessage from "@/components/ui/MediaMessage";
 import VoiceRecorder from "@/components/ui/VoiceRecorder";
 import { Socket } from "socket.io-client";
-import { getSocket } from "@/lib/socket";
+import { getSocket, initSocketServer } from "@/lib/socket";
 import { motion } from "framer-motion";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, Send, MoreVertical, Check, CheckCheck, ArrowLeft, File, X, Mic } from "lucide-react";
@@ -66,91 +66,103 @@ const MessagesContent = () => {
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const { data: currentUser } = useCurrentUser();
 
-  // Setup socket connection (shared socket for messages + calls)
+  // Setup socket connection (shared socket for messages + calls). Wait for server then attach listeners.
   useEffect(() => {
-    fetch("/api/socket");
-    socket = getSocket();
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
 
-    if (currentUser?.id) {
-      socket.emit("register-user", currentUser.id);
-    }
+    initSocketServer().then(() => {
+      if (cancelled) return;
+      const s = getSocket();
+      socket = s;
 
-    // listen for incoming messages
-    socket.on("receive-message", async (newMsg: Message) => {
-      if (newMsg.conversationId === conversationId) {
-        setUserMessage((prev) => {
-          if (prev.find((m) => m.id === newMsg.id)) return prev; // already exists
-          return [...prev, newMsg];
-        });
+      const register = () => {
+        if (currentUser?.id) s.emit("register-user", currentUser.id);
+      };
+      if (s.connected) register();
+      s.on("connect", register);
 
-        // Auto-mark as delivered if message is for current user
-        if (newMsg.receiverId === currentUser?.id && !newMsg.delivered) {
-          try {
-            await axios.post("/api/messages/delivered", {
-              messageIds: [newMsg.id],
-              conversationId,
-            });
-            socket.emit("message-delivered", {
-              messageIds: [newMsg.id],
-              conversationId,
-            });
-            // Update local state
-            setUserMessage((prev) =>
-              prev.map((m) => (m.id === newMsg.id ? { ...m, delivered: true } : m))
-            );
-          } catch (error) {
-            console.error("Error marking message as delivered:", error);
-          }
-        }
+      const onReceiveMessage = async (newMsg: Message) => {
+        if (newMsg.conversationId === conversationId) {
+          setUserMessage((prev) => {
+            if (prev.find((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
 
-        // Auto-mark as seen if user is actively viewing
-        if (newMsg.senderId === userId && newMsg.receiverId === currentUser?.id && !newMsg.seen) {
-          setTimeout(async () => {
+          if (newMsg.receiverId === currentUser?.id && !newMsg.delivered) {
             try {
-              await axios.post("/api/messages/seen", {
-                conversationId,
-                senderId: userId,
+              await axios.post("/api/messages/delivered", {
                 messageIds: [newMsg.id],
+                conversationId,
               });
-              socket.emit("message-seen", {
+              s.emit("message-delivered", {
                 messageIds: [newMsg.id],
                 conversationId,
               });
               setUserMessage((prev) =>
-                prev.map((m) => (m.id === newMsg.id ? { ...m, seen: true } : m))
+                prev.map((m) => (m.id === newMsg.id ? { ...m, delivered: true } : m))
               );
             } catch (error) {
-              console.error("Error marking message as seen:", error);
+              console.error("Error marking message as delivered:", error);
             }
-          }, 500);
+          }
+
+          if (newMsg.senderId === userId && newMsg.receiverId === currentUser?.id && !newMsg.seen) {
+            setTimeout(async () => {
+              try {
+                await axios.post("/api/messages/seen", {
+                  conversationId,
+                  senderId: userId,
+                  messageIds: [newMsg.id],
+                });
+                s.emit("message-seen", {
+                  messageIds: [newMsg.id],
+                  conversationId,
+                });
+                setUserMessage((prev) =>
+                  prev.map((m) => (m.id === newMsg.id ? { ...m, seen: true } : m))
+                );
+              } catch (error) {
+                console.error("Error marking message as seen:", error);
+              }
+            }, 500);
+          }
         }
-      }
-    });
+      };
 
-    // Listen for delivered status updates
-    socket.on("message-delivered", (data: { messageIds: string[] }) => {
-      setUserMessage((prev) =>
-        prev.map((m) =>
-          data.messageIds.includes(m.id) ? { ...m, delivered: true } : m
-        )
-      );
-    });
+      const onDelivered = (data: { messageIds: string[] }) => {
+        setUserMessage((prev) =>
+          prev.map((m) =>
+            data.messageIds.includes(m.id) ? { ...m, delivered: true } : m
+          )
+        );
+      };
 
-    // Listen for seen status updates
-    socket.on("message-seen", (data: { messageIds: string[] }) => {
-      setUserMessage((prev) =>
-        prev.map((m) =>
-          data.messageIds.includes(m.id) ? { ...m, seen: true } : m
-        )
-      );
+      const onSeen = (data: { messageIds: string[] }) => {
+        setUserMessage((prev) =>
+          prev.map((m) =>
+            data.messageIds.includes(m.id) ? { ...m, seen: true } : m
+          )
+        );
+      };
+
+      s.on("receive-message", onReceiveMessage);
+      s.on("message-delivered", onDelivered);
+      s.on("message-seen", onSeen);
+
+      cleanup = () => {
+        s.off("connect", register);
+        s.off("receive-message", onReceiveMessage);
+        s.off("message-delivered", onDelivered);
+        s.off("message-seen", onSeen);
+      };
     });
 
     return () => {
-      socket.off("receive-message");
-      socket.off("message-delivered");
-      socket.off("message-seen");
+      cancelled = true;
+      cleanup?.();
     };
-  }, [conversationId, currentUser?.id]);
+  }, [conversationId, currentUser?.id, userId]);
 
   const handleFileSelected = (file: File | null) => {
     if (!file) {
@@ -210,7 +222,7 @@ const MessagesContent = () => {
 
         const savedMessage = { ...response.data, delivered: false, seen: false };
         setUserMessage((prev) => [...prev, savedMessage]);
-        socket.emit("send-message", savedMessage);
+        getSocket().emit("send-message", savedMessage);
 
         // Mark as delivered
         setTimeout(async () => {
@@ -219,7 +231,7 @@ const MessagesContent = () => {
               messageIds: [savedMessage.id],
               conversationId,
             });
-            socket.emit("message-delivered", {
+            getSocket().emit("message-delivered", {
               messageIds: [savedMessage.id],
               conversationId,
             });
@@ -258,7 +270,7 @@ const MessagesContent = () => {
 
       const savedMessage = { ...response.data, delivered: false, seen: false };
       setUserMessage((prev) => [...prev, savedMessage]);
-      socket.emit("send-message", savedMessage);
+      getSocket().emit("send-message", savedMessage);
       setMessage("");
       setUploadedFile(null);
       if (filePreview?.url && filePreview.url.startsWith("blob:")) {
@@ -275,7 +287,7 @@ const MessagesContent = () => {
             messageIds: [savedMessage.id],
             conversationId,
           });
-          socket.emit("message-delivered", {
+          getSocket().emit("message-delivered", {
             messageIds: [savedMessage.id],
             conversationId,
           });
@@ -341,7 +353,7 @@ const MessagesContent = () => {
             senderId: userId,
             messageIds: unseenMessageIds,
           });
-          socket.emit("message-seen", {
+          getSocket().emit("message-seen", {
             messageIds: unseenMessageIds,
             conversationId,
           });
@@ -390,7 +402,7 @@ const MessagesContent = () => {
               messageIds: unseenMessageIds,
             });
             // Emit seen status via socket
-            socket.emit("message-seen", {
+            getSocket().emit("message-seen", {
               messageIds: unseenMessageIds,
               conversationId,
             });
