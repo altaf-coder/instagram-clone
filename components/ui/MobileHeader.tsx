@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
+import { getSocket } from "@/lib/socket";
 import { Instagram } from "lucide-react";
 import {
   Sheet,
@@ -46,12 +47,20 @@ const MobileHeader = () => {
   const markRead = async () => {
     try {
       await axios.post("/api/user/markreadnotifications");
-      // Refresh notifications after marking as read
       await fetchNotifications();
     } catch (error) {
       console.log(error);
     }
   };
+
+  useEffect(() => {
+    const socket = getSocket();
+    const onNewNotification = () => fetchNotifications();
+    socket.on("new-notification", onNewNotification);
+    return () => {
+      socket.off("new-notification", onNewNotification);
+    };
+  }, []);
 
   return (
     <div className="lg:hidden fixed top-0 left-0 right-0 z-[90] bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3.5 flex items-center justify-between safe-area-inset-top shadow-sm">

@@ -11,7 +11,8 @@ import EmojiPickerComponent from "@/components/ui/EmojiPicker";
 import FileUploadButton from "@/components/ui/FileUploadButton";
 import MediaMessage from "@/components/ui/MediaMessage";
 import VoiceRecorder from "@/components/ui/VoiceRecorder";
-import { io, Socket } from "socket.io-client";
+import { Socket } from "socket.io-client";
+import { getSocket } from "@/lib/socket";
 import { motion } from "framer-motion";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, Send, MoreVertical, Check, CheckCheck, ArrowLeft, File, X, Mic } from "lucide-react";
@@ -65,16 +66,16 @@ const MessagesContent = () => {
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const { data: currentUser } = useCurrentUser();
 
-  // 🆕 Setup socket connection
+  // Setup socket connection (shared socket for messages + calls)
   useEffect(() => {
-    // ensure API socket is started
     fetch("/api/socket");
+    socket = getSocket();
 
-    socket = io({
-      path: "/api/socket_io",
-    });
+    if (currentUser?.id) {
+      socket.emit("register-user", currentUser.id);
+    }
 
-    // 🆕 listen for incoming messages
+    // listen for incoming messages
     socket.on("receive-message", async (newMsg: Message) => {
       if (newMsg.conversationId === conversationId) {
         setUserMessage((prev) => {
@@ -145,7 +146,9 @@ const MessagesContent = () => {
     });
 
     return () => {
-      socket.disconnect();
+      socket.off("receive-message");
+      socket.off("message-delivered");
+      socket.off("message-seen");
     };
   }, [conversationId, currentUser?.id]);
 

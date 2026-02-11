@@ -45,6 +45,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getSocket } from "@/lib/socket";
 const ProfilePage: React.FC<ProfilePageProps> = ({ id }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ id }) => {
     name: "",
     bio: "",
   });
-  const { data: currentUser } = useCurrentUser();
+  const { data: currentUser, mutate: mutateCurrentUser } = useCurrentUser();
   const [name, setName] = useState(currentUser?.name || "");
   const [bio, setBio] = useState(currentUser?.bio || "");
   const [image, setImage] = useState(currentUser?.image || "");
@@ -71,6 +72,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ id }) => {
   const [savedPostsOpen, setSavedPostsOpen] = useState(false);
   const [savedPosts, setSavedPosts] = useState([]);
   const [savedPostsLoading, setSavedPostsLoading] = useState(false);
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const Following = currentUser?.followingIds?.includes(id);
@@ -123,6 +125,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ id }) => {
       });
       setUser(res.data);
       toast.success("Profile updated successfully");
+      setEditSheetOpen(false);
+      mutateCurrentUser();
     } catch (error) {
       console.log(error);
       toast.error("Something went wrong in updating profile");
@@ -136,6 +140,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ id }) => {
       });
       setIsFollowing(true);
       toast.success("Followed successfully!");
+      getSocket().emit("notify-user", { targetUserId: id });
       return response.data;
     } catch (error) {
       console.error(error);
@@ -237,9 +242,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ id }) => {
             <div className="flex items-center gap-2">
               {showEdit ? (
                 <>
-                  <Sheet>
+                  <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
                     <SheetTrigger asChild>
-                      <Button size="sm" variant="secondary" className="h-[30px] text-sm px-4">
+                      <Button size="sm" variant="secondary" className="h-[30px] text-sm px-4" onClick={() => setEditSheetOpen(true)}>
                         Edit Profile
                       </Button>
                     </SheetTrigger>
@@ -391,9 +396,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ id }) => {
               )}
               {showEdit && (
                 <>
-                  <Sheet>
+                  <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
                     <SheetTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-[38px] text-base px-4">
+                      <Button variant="outline" size="sm" className="h-[38px] text-base px-4" onClick={() => setEditSheetOpen(true)}>
                         Edit Profile
                       </Button>
                     </SheetTrigger>

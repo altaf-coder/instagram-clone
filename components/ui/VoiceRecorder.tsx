@@ -157,7 +157,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplete, onCa
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
-        className="absolute bottom-full left-0 mb-2 p-4 bg-card border border-border rounded-lg shadow-lg min-w-[300px] z-10"
+        className="fixed inset-x-0 bottom-0 sm:inset-auto sm:bottom-full sm:left-0 sm:mb-2 p-4 sm:min-w-[300px] sm:max-w-[360px] bg-card border border-border rounded-t-2xl sm:rounded-lg shadow-lg z-[80] pb-[env(safe-area-inset-bottom)] sm:pb-4"
       >
         {!audioBlob ? (
           // Recording state

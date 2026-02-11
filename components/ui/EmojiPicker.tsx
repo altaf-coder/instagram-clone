@@ -42,7 +42,7 @@ const EmojiPickerComponent: React.FC<EmojiPickerProps> = ({ onEmojiClick }) => {
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     onEmojiClick(emojiData.emoji);
-    setIsOpen(false);
+    // Keep picker open so user can select multiple emojis
   };
 
   return (
@@ -58,11 +58,12 @@ const EmojiPickerComponent: React.FC<EmojiPickerProps> = ({ onEmojiClick }) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[calc(100vw-2rem)] sm:w-auto p-0 border-border bg-card max-w-full sm:max-w-[350px]" 
+        className="w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-auto sm:max-w-[350px] p-0 border-border bg-card" 
         align="center"
         alignOffset={0}
         side="top"
         sideOffset={8}
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <EmojiPicker
           onEmojiClick={handleEmojiClick}
