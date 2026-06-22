@@ -5,6 +5,7 @@ const nextConfig = {
       process.env.NEXT_PUBLIC_AGORA_APP_ID ||
       process.env.PUBLIC_AGORA_APP_ID ||
       "",
+    NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL || "",
   },
   api: {
     bodyParser: false, // disable Next.js body parser (we're using formidable instead)

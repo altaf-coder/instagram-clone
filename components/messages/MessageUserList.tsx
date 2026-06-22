@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { useRouter, useSearchParams } from "next/navigation";
-import { io, Socket } from "socket.io-client";
+import { getSocket, initSocketServer } from "@/lib/socket";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,7 +26,7 @@ interface Message {
   sharedPost?: any;
 }
 
-let socket: Socket; // 🆕 socket instance
+let socket: ReturnType<typeof getSocket>;
 
 const MessageUsersList: React.FC<MessageUserListProps> = ({ conversationId }) => {
   const [uniqueUsers, setUniqueUsers] = useState<any[]>([]);
@@ -42,57 +42,58 @@ const MessageUsersList: React.FC<MessageUserListProps> = ({ conversationId }) =>
 
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
-  // 🆕 Setup socket
   useEffect(() => {
     if (!currentUser?.id) return;
 
-    fetch("/api/socket"); // boot server
-    if (!socket) {
-      socket = io({ path: "/api/socket_io" });
-    }
+    let cleanup: (() => void) | undefined;
 
-    // listen for new messages
-    const handleReceiveMessage = (msg: Message) => {
-      if (!msg || !msg.senderId) return;
+    initSocketServer().then(() => {
+      socket = getSocket();
 
-      // update the latest message for that user
-      const otherUserId = msg.senderId === currentUser.id ? activeUserId : msg.senderId;
+      const register = () => {
+        socket.emit("register-user", currentUser.id);
+        socket.emit("user-online", currentUser.id);
+      };
+      if (socket.connected) register();
+      socket.on("connect", register);
 
-      setLatestMessages((prev) => ({
-        ...prev,
-        [otherUserId!]: msg,
-      }));
-    };
+      const handleReceiveMessage = (msg: Message) => {
+        if (!msg || !msg.senderId) return;
+        const otherUserId =
+          msg.senderId === currentUser.id ? activeUserId : msg.senderId;
+        setLatestMessages((prev) => ({
+          ...prev,
+          [otherUserId!]: msg,
+        }));
+      };
 
-    // Track online users
-    const handleUserOnline = (userId: string) => {
-      if (userId !== currentUser.id) {
-        setOnlineUsers((prev) => new Set(prev).add(userId));
-      }
-    };
+      const handleUserOnline = (userId: string) => {
+        if (userId !== currentUser.id) {
+          setOnlineUsers((prev) => new Set(prev).add(userId));
+        }
+      };
 
-    const handleUserOffline = (userId: string) => {
-      setOnlineUsers((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(userId);
-        return newSet;
-      });
-    };
+      const handleUserOffline = (userId: string) => {
+        setOnlineUsers((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(userId);
+          return newSet;
+        });
+      };
 
-    socket.on("receive-message", handleReceiveMessage);
-    socket.on("user-online", handleUserOnline);
-    socket.on("user-offline", handleUserOffline);
+      socket.on("receive-message", handleReceiveMessage);
+      socket.on("user-online", handleUserOnline);
+      socket.on("user-offline", handleUserOffline);
 
-    // Emit that current user is online
-    socket.emit("user-online", currentUser.id);
-
-    return () => {
-      if (socket) {
+      cleanup = () => {
+        socket.off("connect", register);
         socket.off("receive-message", handleReceiveMessage);
         socket.off("user-online", handleUserOnline);
         socket.off("user-offline", handleUserOffline);
-      }
-    };
+      };
+    });
+
+    return () => cleanup?.();
   }, [currentUser?.id, activeUserId]);
 
   // Fetch followers/following (default chat list)
