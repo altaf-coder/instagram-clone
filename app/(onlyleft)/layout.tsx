@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import MobileBottomNav from "@/components/ui/MobileBottomNav";
 import MobileHeader from "@/components/ui/MobileHeader";
 import SocketUserRegistration from "@/components/SocketUserRegistration";
+import AgoraCallProvider from "@/components/call/AgoraCallProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default async function RootLayout({
           <Toaster />
           <SessionWrapper>
             <SocketUserRegistration />
+            <AgoraCallProvider>
             {/* Mobile Header */}
             <MobileHeader />
             <div className="flex min-h-screen max-w-7xl mx-auto relative bg-background pt-14 lg:pt-0">
@@ -57,6 +59,7 @@ export default async function RootLayout({
             </div>
             {/* Mobile Bottom Navigation */}
             <MobileBottomNav />
+            </AgoraCallProvider>
           </SessionWrapper>
         </ThemeProvider>
       </body>

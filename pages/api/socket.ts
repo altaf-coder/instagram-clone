@@ -62,7 +62,38 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
         socket.join(`user-${userId}`);
       });
 
-      // Call events (include callType so receiver can show Accept/Reject for audio vs video)
+      // Agora call signaling (socket for invite/accept/reject only; media via Agora RTC)
+      socket.on("call-invite", (data: {
+        targetUserId: string;
+        channelName: string;
+        callType: "audio" | "video";
+        fromUserId: string;
+        fromName?: string;
+        fromImage?: string;
+      }) => {
+        socket.to(`user-${data.targetUserId}`).emit("call-invite", {
+          channelName: data.channelName,
+          callType: data.callType || "audio",
+          fromUserId: currentUserId,
+          fromName: data.fromName,
+          fromImage: data.fromImage,
+          targetUserId: data.targetUserId,
+        });
+      });
+
+      socket.on("call-accept", (data: {
+        targetUserId: string;
+        channelName: string;
+        callType?: "audio" | "video";
+      }) => {
+        socket.to(`user-${data.targetUserId}`).emit("call-accept", {
+          fromUserId: currentUserId,
+          channelName: data.channelName,
+          callType: data.callType,
+        });
+      });
+
+      // Legacy WebRTC events (kept for backward compatibility)
       socket.on("call-offer", (data: { targetUserId: string; offer: any; callType: "audio" | "video" }) => {
         socket.to(`user-${data.targetUserId}`).emit("call-offer", { 
           fromUserId: currentUserId, 

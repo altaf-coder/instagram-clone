@@ -6,6 +6,8 @@ import SessionWrapper from "@/hooks/SessionWrapper";
 import LeftSideBarMessage from "@/components/ui/LeftSideBarMessage";
 import { ThemeProvider } from "@/components/theme-provider";
 import MobileBottomNav from "@/components/ui/MobileBottomNav";
+import SocketUserRegistration from "@/components/SocketUserRegistration";
+import AgoraCallProvider from "@/components/call/AgoraCallProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +40,8 @@ export default async function RootLayout({
         >
           <Toaster />
           <SessionWrapper>
+            <SocketUserRegistration />
+            <AgoraCallProvider>
             <div className="flex h-[100dvh] w-full bg-background overflow-hidden">
               <div className="hidden lg:block w-16 border-r border-border">
                 <LeftSideBarMessage />
@@ -50,6 +54,7 @@ export default async function RootLayout({
             </div>
             {/* Mobile Bottom Navigation */}
             <MobileBottomNav />
+            </AgoraCallProvider>
           </SessionWrapper>
         </ThemeProvider>
       </body>
